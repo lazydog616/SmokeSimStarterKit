@@ -10,7 +10,6 @@
 #include "grid_data.h"
 #include "grid_data_matrix.h"
 #include "particle.h"
-#include "Array.h"
 class Camera;
 
 class MACGrid
@@ -31,20 +30,29 @@ public:
 	void project(double dt);
 	void advectTemperature(double dt);
 	void advectDensity(double dt);
-	bool check_boundary(vec3 p);
+	bool checkBoundary(vec3 p);
+
+	//level set
+	float rmax, rmin; // particle radius
+	std::vector<Particle*> particles;
+	GridData levelset_phi;
+	void setLiquidBoundary(float (*phi)(const vec3&));
+	void initializeParticles();
+	void advectParticles(float dt);
+	void advectLevelset(float dt);
+	vec3 traceRk2(const vec3& position, float dt);
+
 protected:
 
 	// Setup:
 	void initialize();
-	//level set
-	float rmax, rmin; // particle radius
-	std::vector<Particle*> mparticles;
-	GridData levelset_phi;
-	void set_liquid_boundary(double (*phi)(const vec3&));
-	void initialize_mparticles(double (*phi)(const vec3&));
-	void advect_mparticles(float dt);
-	void advect_levelset(float dt);
-	vec3 trace_rk2(const vec3& position, float dt);
+
+	// helper methods for level set
+	void computeWeights();
+	GridData u_weights;
+	GridData v_weights;
+	GridData w_weights;
+
 	// end of level set
 
 	// Simulation:

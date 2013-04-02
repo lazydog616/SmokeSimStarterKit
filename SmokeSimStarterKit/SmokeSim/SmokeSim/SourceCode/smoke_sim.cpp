@@ -7,6 +7,14 @@
 #include "custom_output.h"
 #include "basic_math.h"
 
+float sphere_phi(const vec3& position, const vec3& centre, float radius) {
+	return ((position - centre).Length() - radius);
+}
+
+float liquid_phi(const vec3& position) {
+   return sphere_phi(position, vec3(5, 5, 1.25), 1);
+}
+
 SmokeSim::SmokeSim() : mFrameNum(0), mTotalFrameNum(0), mRecordEnabled(false)
 {
    reset();
@@ -19,6 +27,10 @@ SmokeSim::~SmokeSim()
 void SmokeSim::reset()
 {
    mGrid.reset();
+	// for water
+	mGrid.setLiquidBoundary(liquid_phi);
+	mGrid.initializeParticles();
+
 	mTotalFrameNum = 0;
 }
 
@@ -26,19 +38,27 @@ void SmokeSim::step()
 {
 	double dt = 0.04;//0.1 or 0.04;
 
-   // Step0: Gather user forces
-   mGrid.updateSources();
+	// for smoke
+   //// Step0: Gather user forces
+   //mGrid.updateSources();
 
-   // Step1: Calculate new velocities
-   mGrid.advectVelocity(dt);
-   mGrid.addExternalForces(dt);
-   mGrid.project(dt);
+   //// Step1: Calculate new velocities
+   //mGrid.advectVelocity(dt);
+   //mGrid.addExternalForces(dt);
+   //mGrid.project(dt);
 
-   // Step2: Calculate new temperature
-   mGrid.advectTemperature(dt);
+   //// Step2: Calculate new temperature
+   //mGrid.advectTemperature(dt);
 
-   // Step3: Calculate new density 
-   mGrid.advectDensity(dt);
+   //// Step3: Calculate new density 
+   //mGrid.advectDensity(dt);
+
+	mGrid.advectLevelset(dt);
+	mGrid.advectParticles(dt);
+	mGrid.advectVelocity(dt);
+	mGrid.addExternalForces(dt);
+	mGrid.project(dt);
+
 	mTotalFrameNum++;
 }
 

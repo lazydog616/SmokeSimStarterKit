@@ -89,4 +89,28 @@ public:
    virtual vec3 worldToSelf(const vec3& pt) const;
 };
 
+class GridDataInt
+{
+public:
+   GridDataInt();
+   virtual ~GridDataInt();
+   virtual GridDataInt& operator=(const GridDataInt& orig);
+
+   // Initialize underlying data structure with dlftValue
+   virtual void initialize(int dfltValue = 0);
+
+   // Returns editable data at index (i,j,k).
+   // E.g. to set data on this object, call mygriddata(i,j,k) = newval
+   virtual int& operator()(int i, int j, int k);
+   virtual const int operator()(int i, int j, int k) const;
+
+   // Access underlying data structure (for use with other UBLAS objects)
+   std::vector<int>& data();
+
+protected:
+
+   int mDfltValue;
+   std::vector<int> mData;
+};
+
 #endif

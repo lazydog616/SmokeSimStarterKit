@@ -535,3 +535,71 @@ vec3 GridDataZ::worldToSelf(const vec3& pt) const
    out[2] = min(max(0.0, pt[2]), mMax[2]);
    return out;
 }
+
+
+
+GridDataInt::GridDataInt() :
+   mDfltValue(0)
+{
+}
+
+GridDataInt::~GridDataInt() 
+{
+}
+
+std::vector<int>& GridDataInt::data()
+{
+   return mData;
+}
+
+GridDataInt& GridDataInt::operator=(const GridDataInt& orig)
+{
+   if (this == &orig)
+   {
+      return *this;
+   }
+   mDfltValue = orig.mDfltValue;
+   mData = orig.mData;
+   return *this;
+}
+
+void GridDataInt::initialize(int dfltValue)
+{
+   mDfltValue = dfltValue;
+   mData.resize(theDim[0]*theDim[1]*theDim[2], false);
+   std::fill(mData.begin(), mData.end(), mDfltValue);
+}
+
+int& GridDataInt::operator()(int i, int j, int k)
+{
+   static int dflt = 0;
+   dflt = mDfltValue;  // HACK: Protect against setting the default value
+
+   if (i< 0 || j<0 || k<0 || 
+       i > theDim[0]-1 || 
+       j > theDim[1]-1 || 
+       k > theDim[2]-1) return dflt;
+
+   int col = i;
+   int row = k*theDim[0];
+   int stack = j*theDim[0]*theDim[2];
+
+   return mData[col+row+stack];
+}
+
+const int GridDataInt::operator()(int i, int j, int k) const
+{
+   static int dflt = 0;
+   dflt = mDfltValue;  // HACK: Protect against setting the default value
+
+   if (i< 0 || j<0 || k<0 || 
+       i > theDim[0]-1 || 
+       j > theDim[1]-1 || 
+       k > theDim[2]-1) return dflt;
+
+   int col = i;
+   int row = k*theDim[0];
+   int stack = j*theDim[0]*theDim[2];
+
+   return mData[col+row+stack];
+}

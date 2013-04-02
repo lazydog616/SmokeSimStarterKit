@@ -2,8 +2,9 @@
 #ifndef ARRAY__H
 #define ARRAY_H
 
-#include "util.h"
 #include "grid_data.h"
+#include "mac_grid.h"
+#include "constants.h"
 #define UINT_MAX 0xffffffff;
 inline unsigned int randhash(unsigned int seed)
 {
@@ -113,6 +114,13 @@ double interpolate_gradient(vec3& gradient, const vec3& point, const GridData& g
       v001, v101,
       v011, v111,
       fx, fy, fz);
+}
+
+float clamp(float a, float lower, float upper)
+{
+   if(a<lower) return lower;
+   else if(a>upper) return upper;
+   else return a;
 }
 
 #endif

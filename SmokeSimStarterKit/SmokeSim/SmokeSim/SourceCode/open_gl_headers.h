@@ -7,7 +7,7 @@
 #include <windows.h>
 #include <gl/GL.h>
 #include <gl/GLU.h>
-#include <glut.h>
+#include <gl/glut.h>
 
 /*
 // MAC:

@@ -19,12 +19,14 @@
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v110</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v110</PlatformToolset>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -67,6 +69,7 @@
     <ClCompile Include="SourceCode\constants.cpp" />
     <ClCompile Include="SourceCode\fps.cpp" />
     <ClCompile Include="SourceCode\grid_data.cpp" />
+    <ClCompile Include="SourceCode\levelset_util.cpp" />
     <ClCompile Include="SourceCode\mac_grid.cpp" />
     <ClCompile Include="SourceCode\main.cpp" />
     <ClCompile Include="SourceCode\smoke_sim.cpp" />
@@ -84,6 +87,7 @@
     <ClInclude Include="SourceCode\fps.h" />
     <ClInclude Include="SourceCode\grid_data.h" />
     <ClInclude Include="SourceCode\grid_data_matrix.h" />
+    <ClInclude Include="SourceCode\levelset_util.h" />
     <ClInclude Include="SourceCode\mac_grid.h" />
     <ClInclude Include="SourceCode\matrix.h" />
     <ClInclude Include="SourceCode\open_gl_headers.h" />
@@ -92,7 +96,6 @@
     <ClInclude Include="SourceCode\stb_image.h" />
     <ClInclude Include="SourceCode\stb_image_write.h" />
     <ClInclude Include="SourceCode\timer.h" />
-    <ClInclude Include="SourceCode\util.h" />
     <ClInclude Include="SourceCode\vec.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

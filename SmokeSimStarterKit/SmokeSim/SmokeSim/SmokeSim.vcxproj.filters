@@ -48,6 +48,9 @@
     <ClCompile Include="SourceCode\constants.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="SourceCode\levelset_util.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SourceCode\fps.h">
@@ -104,7 +107,7 @@
     <ClInclude Include="SourceCode\Array.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="SourceCode\util.h">
+    <ClInclude Include="SourceCode\levelset_util.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -11,6 +11,9 @@
 #undef max
 #undef min
 #include <fstream>
+#include <functional>
+#include "Array.h"
+#include "levelset_util.h"
 
 
 // Globals:
@@ -66,6 +69,10 @@ bool MACGrid::theDisplayVel = false;
       for(int j = 0; j < theDim[MACGrid::Y]; j++) \
          for(int i = 0; i < theDim[MACGrid::X]; i++) 
 
+#define FOR_EACH_NEIGHBOR \
+	for (int i1=max(0,i-1); i1<=min(i+1,theDim[MACGrid::X]-1); i1+=2) \
+		for (int j1=max(0,j-1); j1<=min(j+1,theDim[MACGrid::Y]-1); j1+=2) \
+			for (int k1=max(0,k-1); k1<=min(k+1,theDim[MACGrid::Z]-1); k1+=2)
 
 
 MACGrid::MACGrid()
@@ -102,17 +109,37 @@ MACGrid& MACGrid::operator=(const MACGrid& orig)
 MACGrid::~MACGrid()
 {
 }
+
+void MACGrid::reset()
+{
+   mU.initialize();
+   mV.initialize();
+   mW.initialize();
+   mP.initialize();
+   mD.initialize();
+   mT.initialize(0.0);
+
+	levelset_phi.initialize(0.0);
+	u_weights.initialize(0.0);
+	v_weights.initialize(0.0);
+	w_weights.initialize(0.0);
+}
+
+void MACGrid::initialize()
+{
+   reset();
+}
+
 //level set
-void MACGrid::set_liquid_boundary(double (*phi)(const vec3&)) {
+void MACGrid::setLiquidBoundary(float (*phi)(const vec3&)) {
    FOR_EACH_CELL
    {
 	   vec3 pos = this->getCenter(i,j,k);
 		levelset_phi(i,j,k) = phi(pos);
-		
 	}
 }
 
-void MACGrid::initialize_mparticles(double (*phi)(const vec3&)) {
+void MACGrid::initializeParticles() {
 	int seed = 0;
 	int seedi = 0; // for determining whether the particle is inside
 	FOR_EACH_CELL
@@ -122,35 +149,35 @@ void MACGrid::initialize_mparticles(double (*phi)(const vec3&)) {
 		vec3 tmp2;
 		float halfsize = 0.5f*theCellSize;
 		tmp = this->getCenter(i,j,k);
-		tmp2 = vec3(tmp[0] - halfsize,tmp[1] - halfsize,tmp[2] - halfsize);
-		corner[0] = interpolate_value(tmp2, levelset_phi);
+		//tmp2 = vec3(tmp[0] - halfsize,tmp[1] - halfsize,tmp[2] - halfsize);
+		//corner[0] = interpolate_value(tmp2, levelset_phi);
 
-		tmp2 = vec3(tmp[0] - halfsize,tmp[1] - halfsize,tmp[2]+halfsize);
-		corner[1] = interpolate_value(tmp2, levelset_phi);
+		//tmp2 = vec3(tmp[0] - halfsize,tmp[1] - halfsize,tmp[2]+halfsize);
+		//corner[1] = interpolate_value(tmp2, levelset_phi);
 
-		tmp2 = vec3(tmp[0] - halfsize,tmp[1]+halfsize,tmp[2] - halfsize);
-		corner[2] = interpolate_value(tmp2, levelset_phi);
+		//tmp2 = vec3(tmp[0] - halfsize,tmp[1]+halfsize,tmp[2] - halfsize);
+		//corner[2] = interpolate_value(tmp2, levelset_phi);
 
-		tmp2 = vec3(tmp[0] - halfsize,tmp[1] + halfsize,tmp[2] + halfsize);
-		corner[3] = interpolate_value(tmp2, levelset_phi);
+		//tmp2 = vec3(tmp[0] - halfsize,tmp[1] + halfsize,tmp[2] + halfsize);
+		//corner[3] = interpolate_value(tmp2, levelset_phi);
 
-		tmp2 = vec3(tmp[0] + halfsize,tmp[1] - halfsize,tmp[2] - halfsize);
-		corner[4] = interpolate_value(tmp2, levelset_phi);
+		//tmp2 = vec3(tmp[0] + halfsize,tmp[1] - halfsize,tmp[2] - halfsize);
+		//corner[4] = interpolate_value(tmp2, levelset_phi);
 
-		tmp2 = vec3(tmp[0] + halfsize,tmp[1] - halfsize, tmp[2] + halfsize);
-		corner[5] = interpolate_value(tmp2, levelset_phi);
+		//tmp2 = vec3(tmp[0] + halfsize,tmp[1] - halfsize, tmp[2] + halfsize);
+		//corner[5] = interpolate_value(tmp2, levelset_phi);
 
-		tmp2 = vec3(tmp[0] + halfsize,tmp[1] + halfsize,tmp[2] - halfsize);
-		corner[6] = interpolate_value(tmp2, levelset_phi);
+		//tmp2 = vec3(tmp[0] + halfsize,tmp[1] + halfsize,tmp[2] - halfsize);
+		//corner[6] = interpolate_value(tmp2, levelset_phi);
 
-		tmp2 = vec3(tmp[0] + halfsize,tmp[1] + halfsize,tmp[2] + halfsize);
-		corner[7] = interpolate_value(tmp2, levelset_phi);
-				
-		bool particleCell = false;
-		for(int n=0; n<8; n++) {
-			if (corner[n] < 3.0 * theCellSize)
-				particleCell = true;
-		}
+		//tmp2 = vec3(tmp[0] + halfsize,tmp[1] + halfsize,tmp[2] + halfsize);
+		//corner[7] = interpolate_value(tmp2, levelset_phi);
+		//		
+		//bool particleCell = false;
+		//for(int n=0; n<8; n++) {
+		//	if (corner[n] < 3.0 * theCellSize)
+		//		particleCell = true;
+		//}
 
 		tmp2 = vec3(tmp[0] - halfsize,tmp[1] - halfsize,tmp[2] - halfsize);
 		vec3 pos = tmp2;
@@ -158,14 +185,14 @@ void MACGrid::initialize_mparticles(double (*phi)(const vec3&)) {
 			float a = randhashf(seed++); float b = randhashf(seed++); float c = randhashf(seed++);
 			vec3 mpos = pos + theCellSize * vec3(a,b,c);
 			Particle* mp = new Particle(mpos);
-			mparticles.push_back(mp);
+			particles.push_back(mp);
 		}
 
 		float bmin = rmin;
 		float bmax = theCellSize;
 		float db = bmax - bmin;
-		for (int p=0; p<mparticles.size(); p++) {
-			Particle* mp = mparticles[p];
+		for (int p=0; p<particles.size(); p++) {
+			Particle* mp = particles[p];
 			float phi_goal;
 			float inside  = randhashf(seedi++);
 			if (inside <= 0.5)
@@ -199,36 +226,223 @@ void MACGrid::initialize_mparticles(double (*phi)(const vec3&)) {
 		}
 	}
 }
-void MACGrid::advect_mparticles(float dt) { 
-   for(unsigned int p = 0; p < mparticles.size(); ++p) {
-		mparticles[p]->pos = trace_rk2(mparticles[p]->pos, dt);
+
+void MACGrid::advectParticles(float dt) { 
+   for(unsigned int p = 0; p < particles.size(); ++p) {
+		particles[p]->pos = traceRk2(particles[p]->pos, dt);
 	}
 }
 
-vec3 MACGrid::trace_rk2(const vec3& position, float dt) {
+void MACGrid::advectLevelset(float dt) { 
+	FOR_EACH_CELL {
+		vec3 pos((i+0.5)*theCellSize,(j+0.5)*theCellSize,(k+0.5)*theCellSize);
+		vec3 grad;
+		interpolate_gradient(grad, pos, levelset_phi);
+		vec3 v = getVelocity(pos);
+		levelset_phi(i, j, k) -= Dot(v, grad) * dt;
+	}
+
+	// reconditioning
+	GridData px, py, pz; // the coordinates of the closest surface point to each cell
+	GridDataInt known; // keeps track of which cells are known, 1 for known, 0 for unknown
+	GridDataInt inside; // whether a cell is inside, 0 for inside, 1 for outside, 2 for the boundary
+	GridDataInt hasDist; // whether a cell has got distance from a previous sweep
+
+	px.initialize();
+	py.initialize();
+	pz.initialize();
+	known.initialize(0);
+	inside.initialize(0);
+	hasDist.initialize(0);
+
+	FOR_EACH_CELL {
+		vec3 pos((i+0.5)*theCellSize,(j+0.5)*theCellSize,(k+0.5)*theCellSize);
+				
+		if (levelset_phi(i, j, k) < EPSILON) {
+			px(i, j, k) = pos[0];
+			py(i, j, k) = pos[1];
+			pz(i, j, k) = pos[2];
+			known(i, j, k) = 1;
+			inside(i, j, k) = 2;
+		}
+		else if (levelset_phi(i, j, k) < 0)
+			inside(i, j, k) = 0;
+		else
+			inside(i, j, k) = 1;
+
+		// compute closest surface points for boundary cells
+		bool boundary = false;
+		vec3 sp; // surface point
+		float dist; // distance to surface point
+		float phi1 = levelset_phi(i, j, k);
+		FOR_EACH_NEIGHBOR {
+			if (inside(i1, j1, k1) != 2 && inside(i1, j1, k1) != inside(i, j, k)) {
+				if (!boundary) {
+					boundary = true;
+					vec3 npos((i1+0.5)*theCellSize, (j1+0.5)*theCellSize, (k1+0.5)*theCellSize);
+					float phi2 = levelset_phi(i1, j1, k1);
+					sp = abs(phi2) / abs(phi1-phi2) * pos + abs(phi1) / abs(phi1-phi2) * npos;
+					dist = (pos - sp).Length(); // magnitude of the vector
+				}
+				else {
+					vec3 npos((i1+0.5)*theCellSize, (j1+0.5)*theCellSize, (k1+0.5)*theCellSize);
+					float phi2 = levelset_phi(i1, j1, k1);
+					vec3 sp1 = abs(phi2) / abs(phi1-phi2) * pos + abs(phi1) / abs(phi1-phi2) * npos;
+					float dist1 = (pos - sp1).Length();
+					if (dist1 < dist) {
+						dist = dist1;
+						sp = sp1;
+					}
+				}
+			}
+		}
+				
+		if (boundary) {
+			px(i, j, k) = sp[0];
+			py(i, j, k) = sp[1];
+			pz(i, j, k) = sp[2];
+			known(i, j, k) = 1;
+			hasDist(i, j, k) = 1;
+			if (inside(i, j, k) == 0)
+				levelset_phi(i, j, k) = -dist;
+			else
+				levelset_phi(i, j, k) = dist;
+		}
+	}
+
+	// loop over all the other cells 
+	FOR_EACH_CELL  {
+		if (known(i, j, k) == 0) {
+			vec3 pos((i+0.5)*theCellSize,(j+0.5)*theCellSize,(k+0.5)*theCellSize);
+			bool updated = false;
+			vec3 sp; // surface point
+			float dist; // distance to surface point
+					
+			if (hasDist(i, j, k)) {
+				sp = vec3(px(i, j, k), py(i, j, k), pz(i, j, k));
+				dist = abs(levelset_phi(i, j, k));
+			}
+
+			FOR_EACH_NEIGHBOR {
+				if (known(i1, j1, k1) == 1) {
+					if (hasDist(i, j, k)) {
+						vec3 sp1 = vec3(px(i1, j1, k1), py(i1, j1, k1), pz(i1, j1, k1));
+						float dist1 = (pos - sp).Length();
+						if (dist1 < dist) {
+							dist = dist1;
+							sp = sp1;
+							updated = true;
+						}
+					}
+					else {
+						if (!updated) {
+							updated = true;
+							sp = vec3(px(i1, j1, k1), py(i1, j1, k1), pz(i1, j1, k1));
+							dist = (pos - sp).Length();
+						}
+						else {
+							vec3 sp1 = vec3(px(i1, j1, k1), py(i1, j1, k1), pz(i1, j1, k1));
+							float dist1 = (pos - sp).Length();
+							if (dist1 < dist) {
+								dist = dist1;
+								sp = sp1;
+							}
+						}
+					}
+				}
+			}
+
+			if (updated) {
+				px(i, j, k) = sp[0];
+				py(i, j, k) = sp[1];
+				pz(i, j, k) = sp[2];
+				known(i, j, k) = 1;
+				hasDist(i, j, k) = 1;
+				if (inside(i, j, k) == 0)
+					levelset_phi(i, j, k) = -dist;
+				else
+					levelset_phi(i, j, k) = dist;
+
+				FOR_EACH_NEIGHBOR {
+					if (dist < abs(levelset_phi(i1, j1, k1)))
+						known(i1, j1, k1) = 0;
+				}
+			}
+		}
+	}
+
+	// loop again in reversed order
+	// TODO: clean up the code
+	FOR_EACH_CELL_REVERSE  {
+		if (known(i, j, k) == 0) {
+			vec3 pos((i+0.5)*theCellSize,(j+0.5)*theCellSize,(k+0.5)*theCellSize);
+			bool updated = false;
+			vec3 sp; // surface point
+			float dist; // distance to surface point
+					
+			if (hasDist(i, j, k)) {
+				sp = vec3(px(i, j, k), py(i, j, k), pz(i, j, k));
+				dist = abs(levelset_phi(i, j, k));
+			}
+
+			FOR_EACH_NEIGHBOR {
+				if (known(i1, j1, k1) == 1) {
+					if (hasDist(i, j, k)) {
+						vec3 sp1 = vec3(px(i1, j1, k1), py(i1, j1, k1), pz(i1, j1, k1));
+						float dist1 = (pos - sp).Length();
+						if (dist1 < dist) {
+							dist = dist1;
+							sp = sp1;
+							updated = true;
+						}
+					}
+					else {
+						if (!updated) {
+							updated = true;
+							sp = vec3(px(i1, j1, k1), py(i1, j1, k1), pz(i1, j1, k1));
+							dist = (pos - sp).Length();
+						}
+						else {
+							vec3 sp1 = vec3(px(i1, j1, k1), py(i1, j1, k1), pz(i1, j1, k1));
+							float dist1 = (pos - sp).Length();
+							if (dist1 < dist) {
+								dist = dist1;
+								sp = sp1;
+							}
+						}
+					}
+				}
+			}
+
+			if (updated) {
+				px(i, j, k) = sp[0];
+				py(i, j, k) = sp[1];
+				pz(i, j, k) = sp[2];
+				known(i, j, k) = 1;
+				hasDist(i, j, k) = 1;
+				if (inside(i, j, k) == 0)
+					levelset_phi(i, j, k) = -dist;
+				else
+					levelset_phi(i, j, k) = dist;
+
+				FOR_EACH_NEIGHBOR {
+					if (dist < abs(levelset_phi(i1, j1, k1)))
+						known(i1, j1, k1) = 0;
+				}
+			}
+		}
+	}
+}
+
+vec3 MACGrid::traceRk2(const vec3& position, float dt) {
    vec3 input = position;
    vec3 velocity = this->getVelocity(input);
    velocity = this->getVelocity(input + 0.5f*dt*velocity);
    input += dt*velocity;
    return input;
 }
+
 //end of level set
-void MACGrid::reset()
-{
-   mU.initialize();
-   mV.initialize();
-   mW.initialize();
-   mP.initialize();
-   mD.initialize();
-   mT.initialize(0.0);
-
-   setUpAMatrix();
-}
-
-void MACGrid::initialize()
-{
-   reset();
-}
 
 void MACGrid::updateSources()
 {
@@ -456,10 +670,15 @@ void MACGrid::computeVorticityConfinement(double dt)
 
 void MACGrid::addExternalForces(double dt)
 {
-   computeBouyancy(dt);
-   computeVorticityConfinement(dt);
+   //computeBouyancy(dt);
+   //computeVorticityConfinement(dt);
+
+	// add gravity
+	FOR_EACH_FACE_Y {
+		mV(i, j, k) -= 9.81 * dt;
+	}
 }
-bool MACGrid::check_boundary(vec3 p)
+bool MACGrid::checkBoundary(vec3 p)
 {
 	if(p[0]<=0||p[0]>=theDim[MACGrid::X]*theCellSize||p[1]<=0||p[1]>=theDim[MACGrid::Y]*theCellSize||p[2]<=0||p[2]>=theDim[MACGrid::Z]*theCellSize)
 	return true;
@@ -478,6 +697,34 @@ bool MACGrid::checkDivergence(GridData d)
 	else return false;
 	//return true;
 }
+
+//Compute finite-volume style face-weights for fluid from nodal signed distances
+void MACGrid::computeWeights() {
+
+   //Compute face area fractions (using marching squares cases).
+	FOR_EACH_CELL {
+      u_weights(i,j,k) = fraction_inside(levelset_phi(i,j,  k),
+                                             levelset_phi(i,j+1,k),
+                                             levelset_phi(i,j,  k+1),
+                                             levelset_phi(i,j+1,k+1));
+      u_weights(i,j,k) = clamp(u_weights(i,j,k),0.0f,1.0f);
+   }
+	FOR_EACH_CELL {
+      v_weights(i,j,k) = fraction_inside(levelset_phi(i,  j,k),
+                                             levelset_phi(i,  j,k+1),
+                                             levelset_phi(i+1,j,k),
+                                             levelset_phi(i+1,j,k+1));
+      v_weights(i,j,k) = clamp(v_weights(i,j,k),0.0f,1.0f);
+   }
+	FOR_EACH_CELL {
+      w_weights(i,j,k) = fraction_inside(levelset_phi(i,  j,  k),
+                                             levelset_phi(i,  j+1,k),
+                                             levelset_phi(i+1,j,  k),
+                                             levelset_phi(i+1,j+1,k));
+      w_weights(i,j,k) = clamp(w_weights(i,j,k),0.0f,1.0f);
+   }
+}
+
 void MACGrid::project(double dt)
 {
 	// TODO: Solve Ap = d for pressure.
@@ -485,69 +732,52 @@ void MACGrid::project(double dt)
 	GridData d;
 	d.initialize();
 	std::vector<double> test2;
-	/*
-	FOR_EACH_FACE_X
-	{
-		if(i==0||i==theDim[MACGrid::X]) {target.mU(i,j,k) = 0;continue;}
-		
-		
-	}
-	FOR_EACH_FACE_Y
-	{
-		if(j==0||j==theDim[MACGrid::Y]) {target.mV(i,j,k) = 0;continue;}
-		
-		
-	}
 
-	FOR_EACH_FACE_Z
-	{
-		if(k==0||k==theDim[MACGrid::X]) {target.mW(i,j,k) = 0;continue;}
-		
-		
-	}*/
+	computeWeights();
 	
 	FOR_EACH_CELL
 	{
-		double tmp;
-		vec3 p = this->getCenter(i,j,k);
-		double half = theCellSize/2.0f;
-		vec3 xl = vec3(p[0] - half,p[1],p[2]);
-		vec3 xh = vec3(p[0] + half,p[1],p[2]);
-		vec3 yl = vec3(p[0],p[1] - half,p[2]);
-		vec3 yh = vec3(p[0],p[1] + half,p[2]);
-		vec3 zl = vec3(p[0],p[1],p[2] - half);
-		vec3 zh = vec3(p[0],p[1],p[2] + half);
+		if (levelset_phi(i,j,k) < 0) {
+			double tmp;
+			vec3 p = this->getCenter(i,j,k);
+			double half = theCellSize/2.0f;
+			vec3 xl = vec3(p[0] - half,p[1],p[2]);
+			vec3 xh = vec3(p[0] + half,p[1],p[2]);
+			vec3 yl = vec3(p[0],p[1] - half,p[2]);
+			vec3 yh = vec3(p[0],p[1] + half,p[2]);
+			vec3 zl = vec3(p[0],p[1],p[2] - half);
+			vec3 zh = vec3(p[0],p[1],p[2] + half);
 
-		double xvl,xvh,yvl,yvh,zvl,zvh;
-		if(xl[0]<=0||xl[0]>=theDim[MACGrid::X]*theCellSize)xvl = 0;
-		else xvl = this->getVelocityX(xl);
-		if(xh[0]<=0||xh[0]>=theDim[MACGrid::X]*theCellSize)xvh = 0;
-		else xvh = this->getVelocityX(xh);
+			double xvl,xvh,yvl,yvh,zvl,zvh;
+			if(xl[0]<=0||xl[0]>=theDim[MACGrid::X]*theCellSize)xvl = 0;
+			else xvl = this->getVelocityX(xl);
+			if(xh[0]<=0||xh[0]>=theDim[MACGrid::X]*theCellSize)xvh = 0;
+			else xvh = this->getVelocityX(xh);
 
-		if(yl[0]<=0||yl[0]>=theDim[MACGrid::Y]*theCellSize)yvl = 0;
-		else yvl = this->getVelocityY(yl);
-		if(yh[0]<=0||yh[0]>=theDim[MACGrid::Y]*theCellSize)yvh = 0;
-		else yvh = this->getVelocityY(yh);
+			if(yl[0]<=0||yl[0]>=theDim[MACGrid::Y]*theCellSize)yvl = 0;
+			else yvl = this->getVelocityY(yl);
+			if(yh[0]<=0||yh[0]>=theDim[MACGrid::Y]*theCellSize)yvh = 0;
+			else yvh = this->getVelocityY(yh);
 	
-		if(zl[0]<=0||zl[0]>=theDim[MACGrid::Z]*theCellSize)zvl = 0;
-		else zvl = this->getVelocityZ(zl);
-		if(zh[0]<=0||zh[0]>=theDim[MACGrid::Z]*theCellSize)zvh = 0;
-		else zvh = this->getVelocityZ(zh);
+			if(zl[0]<=0||zl[0]>=theDim[MACGrid::Z]*theCellSize)zvl = 0;
+			else zvl = this->getVelocityZ(zl);
+			if(zh[0]<=0||zh[0]>=theDim[MACGrid::Z]*theCellSize)zvh = 0;
+			else zvh = this->getVelocityZ(zh);
 
 		
 		
-		double dx_reverse = 1/theCellSize;
-		double constant = -theCellSize*theCellSize/dt;
-		tmp = constant*dx_reverse*(xvh - xvl + yvh - yvl + zvh - zvl);
+			double dx_reverse = 1/theCellSize;
+			double constant = -theCellSize*theCellSize/dt;
+			tmp = constant*dx_reverse*(u_weights(i+1,j,k) * xvh - u_weights(i,j,k) * xvl + v_weights(i,j+1,k) * yvh
+				- v_weights(i,j,k) * yvl + w_weights(i,j,k+1) * zvh - w_weights(i,j,k-1) * zvl);
 		
-		d(i,j,k) = tmp;
+			d(i,j,k) = tmp;
+		}
+		else
+			d(i,j,k) = 0.0;
 		
 	}
-	double sum = 0;
-	for(int i = 0;i<d.data().size();i++)
-	{
-		sum += d.data()[i];
-	}
+
 	// 2. Construct A
 	setUpAMatrix();
 	// 3. Solve for p
@@ -599,6 +829,99 @@ void MACGrid::project(double dt)
 	// IMPLEMENT THIS AS A SANITY CHECK: assert (checkDivergence());
 	assert (this->checkDivergence(d));
 	
+}
+
+void MACGrid::setUpAMatrix() {
+
+	FOR_EACH_CELL {
+		float phi = levelset_phi(i,j,k);
+
+		if (phi < 0) {
+			if (i-1 >= 0) {
+				float left_phi = levelset_phi(i-1,j,k);
+				if (left_phi < 0) {
+					AMatrix.plusI(i-1,j,k) = -u_weights(i,j,k);
+					AMatrix.diag(i,j,k) += u_weights(i,j,k);
+				}
+				else {
+					float theta = fraction_inside(phi, left_phi);
+					if (theta < 0.01)
+						theta = 0.01;
+					AMatrix.diag(i,j,k) += u_weights(i,j,k)/theta;
+				}
+			}
+
+			if (i+1 < theDim[MACGrid::X]) {
+				float right_phi = levelset_phi(i+1,j,k);
+				if (right_phi < 0) {
+					AMatrix.plusI(i,j,k) = -u_weights(i+1,j,k);
+					AMatrix.diag(i,j,k) += u_weights(i+1,j,k);
+				}
+				else {
+					float theta = fraction_inside(phi, right_phi);
+					if (theta < 0.01)
+						theta = 0.01;
+					AMatrix.diag(i,j,k) += u_weights(i+1,j,k)/theta;
+				}
+			}
+
+			if (j-1 >= 0) {
+				float bot_phi = levelset_phi(i,j-1,k);
+				if (bot_phi < 0) {
+					AMatrix.plusJ(i,j-1,k) = -v_weights(i,j,k);
+					AMatrix.diag(i,j,k) += v_weights(i,j,k);
+				}
+				else {
+					float theta = fraction_inside(phi, bot_phi);
+					if (theta < 0.01)
+						theta = 0.01;
+					AMatrix.diag(i,j,k) += v_weights(i,j,k)/theta;
+				}
+			}
+
+			if (j+1 < theDim[MACGrid::Y]) {
+				float top_phi = levelset_phi(i,j+1,k);
+				if (top_phi < 0) {
+					AMatrix.plusJ(i,j,k) = -v_weights(i,j+1,k);
+					AMatrix.diag(i,j,k) += v_weights(i,j+1,k);
+				}
+				else {
+					float theta = fraction_inside(phi, top_phi);
+					if (theta < 0.01)
+						theta = 0.01;
+					AMatrix.diag(i,j,k) += v_weights(i,j+1,k)/theta;
+				}
+			}
+
+			if (k-1 >= 0) {
+				float near_phi = levelset_phi(i,j,k-1);
+				if (near_phi < 0) {
+					AMatrix.plusK(i,j,k-1) = -w_weights(i,j,k);
+					AMatrix.diag(i,j,k) += w_weights(i,j,k);
+				}
+				else {
+					float theta = fraction_inside(phi, near_phi);
+					if (theta < 0.01)
+						theta = 0.01;
+					AMatrix.diag(i,j,k) += w_weights(i,j,k)/theta;
+				}
+			}
+
+			if (k+1 < theDim[MACGrid::Z]) {
+				float far_phi = levelset_phi(i,j,k+1);
+				if (far_phi < 0) {
+					AMatrix.plusK(i,j,k) = -w_weights(i,j,k+1);
+					AMatrix.diag(i,j,k) += w_weights(i,j,k+1);
+				}
+				else {
+					float theta = fraction_inside(phi, far_phi);
+					if (theta < 0.01)
+						theta = 0.01;
+					AMatrix.diag(i,j,k) += w_weights(i,j,k+1)/theta;
+				}
+			}
+		}
+	}
 }
 
 vec3 MACGrid::getVelocity(const vec3& pt)
@@ -659,44 +982,6 @@ bool MACGrid::isValidCell(int i, int j, int k)
 
 	return true;
 }
-
-void MACGrid::setUpAMatrix() {
-
-	FOR_EACH_CELL {
-
-		int numFluidNeighbors = 0;
-		if (i-1 >= 0) {
-			AMatrix.plusI(i-1,j,k) = -1;
-			numFluidNeighbors++;
-		}
-		if (i+1 < theDim[MACGrid::X]) {
-			AMatrix.plusI(i,j,k) = -1;
-			numFluidNeighbors++;
-		}
-		if (j-1 >= 0) {
-			AMatrix.plusJ(i,j-1,k) = -1;
-			numFluidNeighbors++;
-		}
-		if (j+1 < theDim[MACGrid::Y]) {
-			AMatrix.plusJ(i,j,k) = -1;
-			numFluidNeighbors++;
-		}
-		if (k-1 >= 0) {
-			AMatrix.plusK(i,j,k-1) = -1;
-			numFluidNeighbors++;
-		}
-		if (k+1 < theDim[MACGrid::Z]) {
-			AMatrix.plusK(i,j,k) = -1;
-			numFluidNeighbors++;
-		}
-		// Set the diagonal:
-		AMatrix.diag(i,j,k) = numFluidNeighbors;
-	}
-}
-
-
-
-
 
 
 
@@ -891,8 +1176,14 @@ vec4 MACGrid::getRenderColor(int i, int j, int k)
 {
 
 	// Modify this if you want to change the smoke color, or modify it based on other smoke properties.
-    double value = mD(i, j, k); 
-    return vec4(0, 1.0, 1.0, value);
+    //double value = mD(i, j, k); 
+    //return vec4(0, 1.0, 1.0, value);
+
+	float phi = levelset_phi(i, j, k);
+	if (phi < 0)
+		return vec4(0, 1.0, 1.0, 1.0);
+	else
+		return vec4(0, 0, 0, 0);
 
 }
 
@@ -900,8 +1191,14 @@ vec4 MACGrid::getRenderColor(const vec3& pt)
 {
 
 	// TODO: Modify this if you want to change the smoke color, or modify it based on other smoke properties.
-    double value = getDensity(pt); 
-    return vec4(0, 1.0, 1.0, value);
+    //double value = getDensity(pt); 
+    //return vec4(0, 1.0, 1.0, value);
+
+	float phi = interpolate_value(pt, levelset_phi);
+	if (phi < 0)
+		return vec4(0, 1.0, 1.0, 1.0);
+	else
+		return vec4(0, 0, 0, 0);
 
 }
 
@@ -1050,7 +1347,7 @@ void MACGrid::drawSmoke(const Camera& c)
 
 void MACGrid::drawSmokeCubes(const Camera& c)
 {
-   std::multimap<double, MACGrid::Cube, std::greater<double> > cubes;
+   std::multimap<double, MACGrid::Cube, greater<double> > cubes;
    FOR_EACH_CELL
    {
       MACGrid::Cube cube;
@@ -1061,7 +1358,7 @@ void MACGrid::drawSmokeCubes(const Camera& c)
    } 
 
    // Draw cubes from back to front
-   std::multimap<double, MACGrid::Cube, std::greater<double> >::const_iterator it;
+   std::multimap<double, MACGrid::Cube, greater<double> >::const_iterator it;
    for (it = cubes.begin(); it != cubes.end(); ++it)
    {
       drawCube(it->second);
